@@ -1,0 +1,473 @@
+<!-- saved from url=(0054)https://getbootstrap.com/docs/4.1/examples/offcanvas/# -->
+<html lang="en">
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="Schindler TAS">
+    <meta name="author" content="Ryan Bloomgren">
+    <meta http-equiv="Cache-Control" content="no-`cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <link rel="icon" href="/favicon.ico">
+    <title>Schindler TAS</title>
+    <link href="/static/myapp/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/myapp/offcanvas.css" rel="stylesheet">
+	
+    <script type="text/javascript">
+        var swipelocation = -1;//set by parameter
+        var tempUserLogged = false;//we can only process a new user at a time. this var keeps that so
+        var tempUser; //temp user stored here as json object
+        var tempTimer; //timer to keep track of how long the user is popped up
+	    //var serverip = "10.131.81.70:8000";
+        //var serverip = "192.168.1.156:8000";
+        var serverip = "172.20.10.3:8000";
+		var eleName= ["NX 300_17", "NX 300_25", "TX R5_1", "TX R5_2", "TX GC2_360", "TX GC2_347", "TX GC2_362", "HX_1", "HX_2", "Bottom Lab"];
+        var currentUsers = [];
+        var newsRefreshCount = 0; //counting var used to schedule time to update
+        var modalClearCount = 0; //counting var used to schedule when to close maps/tims modals
+        //var user = {firstName:"John", lastName:"Doe", department:"R&D", location:"Car A", url:"Car A",datetime:"", personalNo:""};
+        function getUsers(){
+            //pulls down users and then stores them in local vars
+            //a draw method is called when data returns
+            var xmlhttp = new XMLHttpRequest();
+            xmlhttp.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+                var myArr = JSON.parse(this.responseText);
+                currentUsers = [];
+                for(var i = 0; i< myArr.length; i++){
+                    var user = {firstName:myArr[i].fname, lastName:myArr[i].lname, department:myArr[i].department, location:myArr[i].location, url:myArr[i].url, visitors:myArr[i].visitors, datetime:myArr[i].date_time, personalNo:myArr[i].personalNo};
+                    currentUsers.push(user);
+                }
+                resetUsers();
+                paintUsers();
+            }
+            };
+            xmlhttp.open("GET", "http://" + serverip + "/userData/?format=json", true);
+            xmlhttp.send();
+        }
+        function getTempUsers(){
+            //Load fresh swipes
+            //and popup window to choose destination
+            if(tempUserLogged)return;
+            var xmlhttp = new XMLHttpRequest();
+            xmlhttp.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+                var myArr = JSON.parse(this.responseText);
+                for(var i = 0; i< myArr.length; i++){
+                    if(swipelocation > 0 && swipelocation == myArr[i].entry){
+					    //There was a swipe in
+                        document.getElementById('modalName').innerHTML = myArr[i].fname + " "+ myArr[i].lname;
+                        tempUserLogged = true;
+                        tempUser = {firstName:myArr[i].fname, lastName:myArr[i].lname, department:myArr[i].department, entry:myArr[i].entry, exit:myArr[i].exit, url:myArr[i].url, datetime:myArr[i].date_time, personalNo:myArr[i].personalNo};
+                        //Display modal
+                        document.getElementById('formVisitors').selectedIndex = "0";
+                        //document.getElementById("listLocs0").classList.add("active");
+                        for(var i = 0; i<eleName.length; i++){
+                            document.getElementById("listLocs" + i).classList.remove("active");
+                        }
+                        document.getElementById("listLocs9").classList.add("active"); //listlocs changed from 16-9
+                        $('#exampleModal').modal('show')
+                        //Schedule a call to cancel the posting after time period
+                        tempTimer = setTimeout(timerUserExpired, 30000)
+                    } 
+                }
+            }
+            };
+            xmlhttp.open("GET", "http://" + serverip + "/userTempData/?format=json", true);
+            xmlhttp.send();
+        }
+        function getNews(){
+            //Load News and display on UI
+            var xmlhttp = new XMLHttpRequest();
+            xmlhttp.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+                var myArr = JSON.parse(this.responseText);
+                if(myArr.length == 0){
+                    document.getElementById("news").style.display ='none';//set to flex to show
+                }else{
+                    document.getElementById('news_title').innerHTML = myArr[0].title;
+                    document.getElementById('news_description').innerHTML = myArr[0].description;
+                    if(myArr[0].newstype == "urgent"){
+                        //Urgent
+                        document.getElementById('news_photo').src = "/icon_urgent.png";
+                    }else if(myArr[0].newstype == "warning"){
+                        //Warning
+                        document.getElementById('news_photo').src = "/icon_warning.png";
+                    }else{
+                        //Info
+                        document.getElementById('news_photo').src = "/icon_information.png";
+                    }
+                    document.getElementById("news").style.display ='block';
+                }
+            }
+            };
+            xmlhttp.open("GET", "http://" + serverip + "/news/?format=json", true);
+            xmlhttp.send();
+        }
+        function testModal(){
+            //test module, calling shows location chooser popup
+            //insert fake user
+            //$('div').removeClass('bg-light').addClass('bg-dark');
+            //$('div').removeClass('bg-white').addClass('bg-secondary');
+            //$('div').removeClass('text-gray-dark').addClass('text-white');
+            //$('div').removeClass('text-muted').addClass('text-white');
+            //$('body').removeClass('bg-light').addClass('bg-secondary');
+            $('#exampleModal').modal('show')
+            //test disappear
+            //tempTimer = setTimeout(timerUserExpired, 10000)
+            
+        }
+        function timsModal(){
+            //document.getElementById('tims_photo').src = "/tims_towerbooking2.png";
+            document.getElementById('tims_photo').src = "/tims_towerbooking.png?t=" + new Date().getTime();//force update #=reload every page refresh ?=every source update
+            modalClearCount = 0;
+            $('#timsModal').modal('show')
+        }
+        function mapsModal(){
+            modalClearCount = 0;
+            $('#mapModal').modal('show')
+        }
+        function submitUser(){
+            var items = document.getElementById('listDestinations').getElementsByClassName("list-group-item active");
+            if(items.length <= 0)return;
+            var selector = document.getElementById('formVisitors');
+            var value = selector[selector.selectedIndex].value;
+            if(tempUserLogged == false)return;
+            clearInterval(tempTimer);
+            delItem(tempUser.url);
+            //now post to real list
+            fetch("http://" + serverip + "/userData/", {
+                method: 'post',
+                headers: {
+                    'Accept': 'application/json, text/plain, */*',
+                    'Content-Type': 'application/json',
+                    'Authorization':'Token ed73db9bf18f3c3067be926d5ab64cec9bcb9c5e'
+                },
+                    body: JSON.stringify({date_time:tempUser.datetime, personalNo:tempUser.personalNo, fname: tempUser.firstName, lname: tempUser.lastName, department: tempUser.department, entry: tempUser.entry, exit: tempUser.exit, location: items[0].innerHTML, visitors: value})
+            });
+            //Open door
+            openDoor(tempUser.entry);
+            tempUserLogged = false;
+        }
+        function openDoor(doorNumber){
+            if(doorNumber == 95 || doorNumber == 94){
+                doorIP = "10.131.81.49"
+            }else{
+                doorIP = "10.131.81.48"
+            }
+            var xmlhttp = new XMLHttpRequest();
+            xmlhttp.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+                
+            }
+            };
+            xmlhttp.open("GET", "http://" + doorIP + "/state.xml?relayState=2&pulseTime=10", true);
+            xmlhttp.send();
+        }
+        function timerUserExpired() {
+            //close modal and reset
+            //alert('Expired');
+            $('#exampleModal').modal('hide');
+            cancelUser();
+        }
+        function cancelUser(){
+            //user hit x on modal swipe in
+            if(tempUserLogged == false)return;
+            clearInterval(tempTimer)
+            delItem(tempUser.url);
+            tempUserLogged = false;
+        }
+        function delItem(itmUrl){
+            var xmlhttp = new XMLHttpRequest();
+            xmlhttp.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 204) {
+                    //alert("deleted");
+            }
+            };
+            xmlhttp.open("DELETE", itmUrl, false);
+            xmlhttp.send();
+        }
+        function addTowerCarListItems(){
+            //adds html to file for each tower car section
+			//only called on startup
+            for(var i = eleName.length -1; i >= 0; i--){
+                var divid = i;
+                var divname = eleName[i];
+                let newLi = document.createElement('div');
+                newLi.setAttribute("id", "divcar" + divid);
+                newLi.innerHTML = "<img src=\"/" + eleName[i].replace(" ", "").toLowerCase().trim() + ".png\" alt=\"N/A\" class=\"mr-2 rounded\" data-holder-rendered=\"true\" style=\"width: 32px; height: 32px;\"><div class=\"media-body pb-3 mb-0 small lh-125 border-bottom border-gray\"><div class=\"d-flex justify-content-between align-items-center w-100\"><strong id=\"loc" + divid + "\" class=\"text-gray-dark\">" + divname + "</strong></div><span id=\"users" + divid + "\" class=\"d-block\">" + " " + "</span></div>";
+                newLi.className = "media text-muted pt-3";
+                newLi.style.display ='none';//set to flex to show
+                intower.insertBefore(newLi, intower.children[1]);               
+            }
+        }
+        function paintUsers(){
+            //paint users on board
+            //also displays unoccupied cars
+            var totalPeople = parseInt(0);
+            var usedLocations = [];//locations where people are
+            for(var i = 0; i< currentUsers.length; i++){
+                    for(var j = 0; j < eleName.length; j++){
+                        if(currentUsers[i].location == eleName[j]){
+                            if(currentUsers[i].visitors > 0){
+                                //Display value
+                                document.getElementById('users' +j).innerHTML = document.getElementById('users' +j).innerHTML + currentUsers[i].firstName+ " "+ currentUsers[i].lastName + "  <font color=\"blue\">" + currentUsers[i].visitors + "</font><br>";
+                            }else{
+                                //Dont display #visitors
+                                document.getElementById('users' +j).innerHTML = document.getElementById('users' +j).innerHTML + currentUsers[i].firstName+ " "+ currentUsers[i].lastName + "<br>";
+                            }
+                            document.getElementById("divcar" + j).style.display ='flex';
+                            usedLocations.push(currentUsers[i].location);
+                        }      
+                    }
+                totalPeople += parseInt(currentUsers[i].visitors);
+            }
+            totalPeople += parseInt(currentUsers.length);
+            document.getElementById("numintower").innerHTML = totalPeople;
+            var strTemp = "";
+            for(var i = 0; i < eleName.length; i++){
+                if(!usedLocations.includes(eleName[i])){
+                    strTemp += (eleName[i].replace(" ", "").trim() + ", "); //"Car" has been replaced with " "
+                }
+            }
+            strTemp = strTemp.substr(0,strTemp.length -2);
+            document.getElementById("unoccupiedCars").innerHTML = strTemp;
+        }
+        function resetUsers(){
+            //calling clears ui
+            //all places are hidden
+            document.getElementById("numintower").innerHTML = "?";
+            document.getElementById("unoccupiedCars").innerHTML = "";
+            for(var i = 0; i< eleName.length; i++){
+                document.getElementById('users' + i).innerHTML = "";
+                document.getElementById("divcar" + i).style.display ='none';//set to block to show     //set to none        
+            }
+        }
+        function startupInitialize() {
+            var parameters = location.search.substring(1).split("&");
+            var temp = parameters[0].split("=");
+            swipelocation = unescape(temp[1]);
+            //if swipe location is a number then we enable swipe monitoring
+            //temp = parameters[1].split("=");
+            //carip = unescape(temp[1]);
+            document.getElementById("numintower").innerHTML = "?";
+            document.getElementById("news").style.display ='none';//set to block to show  //--line commented(04/17/2023)
+            getNews(); //----line commented(04/17/2023)
+            getUsers();
+            
+            //Now add all cars to list hidden.
+            //if a car has an entry it is unhidden
+            addTowerCarListItems();
+            if(swipelocation == 952){
+                document.getElementById("headerBar").style.display ='none';//set to block to show
+                document.getElementById("topInfoBar").style.display ='none';//set to block to show
+            }
+			if(!(swipelocation > 0))return;
+			let timer = setTimeout(function myTimer() {
+				getUsers();
+				getTempUsers();
+                newsRefreshCount = newsRefreshCount + 1;
+                if(modalClearCount < 40){
+                    modalClearCount = modalClearCount + 1;
+                }
+                if(modalClearCount >= 40){
+                    //Close modals after a minute
+                    $('#timsModal').modal('hide');
+                    $('#mapModal').modal('hide');
+                }
+                if(newsRefreshCount >= 40){
+                    //Check News every minute
+                    getNews();
+                    newsRefreshCount = 0;
+                }
+				timer = setTimeout(myTimer, 1500);
+			}, 1500);
+        }
+        document.addEventListener('DOMContentLoaded', function () {
+            startupInitialize();
+        }, false);
+    </script>
+</head>
+
+<body class="bg-light">
+
+    <nav class="navbar navbar-expand-lg fixed-top navbar-dark bg-dark">
+        <a class="navbar-brand mr-auto mr-lg-0" href="index3.html"></a>
+        <button class="navbar-toggler p-0 border-0" type="button" data-toggle="offcanvas">
+        </button>
+    </nav>
+    <div class="nav-scroller bg-white shadow-sm" id="headerBar">
+        <nav class="nav nav-underline">
+            <a class="nav-link active" href="">Dashboard</a>
+            <a class="nav-link" href="">
+                In-Lab
+                <span id="numintower"class="badge badge-pill bg-light align-text-bottom">?</span>
+            </a>
+            <a class="nav-link" id="mapBtn" href="javascript:mapsModal();">Map</a>
+            <a hidden class="nav-link" id="timsBtn" href="javascript:timsModal();">TIMS</a>
+        </nav>
+    </div>
+
+    <main role="main" class="container">
+        <div id="topInfoBar" style="display:flex;" class="align-items-center p-3 my-3 text-white-50 bg-lgray rounded shadow-sm">
+            <img class="mr-3 rounded" src="/schindler-logo-noletters.png" alt="" width="48" height="48">
+            <div class="lh-100">
+                <strong class="d-block text-red">Schindler</strong>
+                <small class="d-block text-dgray">Lab Access System</small> <!--change made-->
+            </div>
+        </div>
+
+        <div id="news" class="my-3 p-3 bg-white rounded shadow-sm">
+            <h6 class="border-bottom border-gray pb-2 mb-0">Announcements</h6>
+            <div class="media text-muted pt-3">
+                <img src="\icon_information.png" id="news_photo" alt="32x32" class="mr-2 rounded" style="width: 32px; height: 32px;" data-holder-rendered="true">
+                <p class="media-body pb-0 mb-0 small lh-125 border-gray">
+                    <strong id="news_title" class="d-block text-gray-dark">Update</strong>
+                    <span id="news_description" class="d-block">No announcements at this time</span>
+                </p>
+            </div>
+        </div>
+
+        <div class="my-3 p-3 bg-white rounded shadow-sm" id="intower">
+            <h6 class="border-bottom border-gray pb-2 mb-0">In-Lab</h6> <!--change made-->
+            <div hidden class="media text-muted pt-3">
+                <img src="/backlab.png" alt="N/A" class="mr-2 rounded" data-holder-rendered="true" style="width: 32px; height: 32px;">
+                <div class="media-body pb-3 mb-0 small lh-125 border-bottom border-gray">
+                    <div class="d-flex justify-content-between align-items-center w-100">
+                        <strong class="text-gray-dark">Full Name</strong>
+                        <a href="#">Follow</a>
+                    </div>
+                    <span class="d-block">@username</span>
+                </div>
+            </div>
+            <small class="d-block text-left mt-3">
+                <strong class="text-gray-dark">Unoccupied Locations:</strong>
+                <span id="unoccupiedCars" class="d-block"></span>
+            </small>
+        </div>
+        <div class="modal fade"  id="timsModal" tabindex="-1" role="dialog">
+            <div class="modal-dialog modal-lg" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="exampleModalLabel3">TIMS</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <i>TIMS Data is refreshed once a day at the beginning of the day.<i>
+                        <div style="border:1px solid black;width:auto;height:700px;overflow:scroll;">
+                            <img src="\tims_towerbooking.png" id="tims_photo" width="1250" height="auto" /><br />
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" data-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>  
+        <div class="modal fade" data-backdrop="static" id="mapModal" tabindex="-1" role="dialog">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="exampleModalLabel2">Map</h5>
+                        <button type="button" class="close" data-dismiss="modal" onclick="" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <img src="\labmap.png" id="map_photo" class="mr-2 rounded" style="width: 800px; height: 600px; max-height:100%; max-width:100%;" data-holder-rendered="true">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" data-dismiss="modal" onclick="">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>  
+        <div class="modal fade" data-backdrop="static" id="exampleModal" tabindex="-1" role="dialog">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="exampleModalLabel">Welcome</h5>
+                        <button type="button" class="close" data-dismiss="modal" onclick="cancelUser()" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        Hello <strong id="modalName" class="text-gray-dark">Full Name</strong>,<br>Welcome to Schindler Morristown!
+                        <br><br>
+                        <h5 class="text-danger"><strong>Please Select: <br>Destination & Number of Visitors</strong></h5>
+                        <div class="row">
+                            <div class="col-4">
+                                <strong class="text-gray-dark">Destination</strong>
+                            </div>
+                            <div class="col-4">
+                                <strong class="text-gray-dark">Visitors</strong>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-4">
+                                <div class="list-group" id="listDestinations" role="tablist">
+                                    <a class="list-group-item list-group-item-action" id="listLocs0" data-toggle="list" href="#list-home" role="tab">NX 300_17</a>
+                                    <a class="list-group-item list-group-item-action" id="listLocs1" data-toggle="list" href="#list-home" role="tab">NX 300_25</a>
+                                    <a class="list-group-item list-group-item-action" id="listLocs2" data-toggle="list" href="#list-home" role="tab">TX R5_1</a>
+                                    <a class="list-group-item list-group-item-action" id="listLocs3" data-toggle="list" href="#list-home" role="tab">TX R5_2</a> 
+                                    <a class="list-group-item list-group-item-action" id="listLocs4" data-toggle="list" href="#list-home" role="tab">TX GC2_360</a>
+                                    <a class="list-group-item list-group-item-action" id="listLocs5" data-toggle="list" href="#list-home" role="tab">TXGC2_347</a>
+                                    <a class="list-group-item list-group-item-action" id="listLocs6" data-toggle="list" href="#list-home" role="tab">TXGC2_362</a>
+                                    <a class="list-group-item list-group-item-action" id="listLocs7" data-toggle="list" href="#list-home" role="tab">HX_1</a>
+                                    <a class="list-group-item list-group-item-action" id="listLocs8" data-toggle="list" href="#list-home" role="tab">HX_2</a>
+                                    <a class="list-group-item list-group-item-action" id="listLocs9" data-toggle="list" href="#list-home" role="tab">Bottom Lab</a>   
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="form-group">
+                                    <select id="formVisitors" class="form-control" id="exampleFormControlSelect1">
+                                            <option>0</option>
+                                            <option>1</option>
+                                            <option>2</option>
+                                            <option>3</option>
+                                            <option>4</option>
+                                            <option>5</option>
+                                            <option>6</option>
+                                            <option>7</option>
+                                            <option>8</option>
+                                            <option>9</option> 
+                                            <option>10</option>
+                                            <option>11</option>
+                                            <option>12</option>
+                                            <option>13</option>
+                                            <option>14</option>
+                                            <option>15</option>
+                                            <option>16</option>
+                                            <option>17</option>
+                                            <option>18</option>
+                                            <option>19</option>
+                                            <option>20</option>        
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" data-dismiss="modal" onclick="submitUser()">Submit</button>
+                    </div>
+                </div>
+            </div>
+        </div>  
+    </main>
+
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="/static/myapp/jquery-3.3.1.slim.min.js"></script>
+	<script src="/static/myapp/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" preserveAspectRatio="none" style="display: none; visibility: hidden; position: absolute; top: -100%; left: -100%;">
+        <defs>
+            <style type="text/css"></style>
+        </defs><text x="0" y="2" style="font-weight:bold;font-size:2pt;font-family:Arial, Helvetica, Open Sans, sans-serif">32x32</text>
+    </svg>
+</body>
+
+</html>

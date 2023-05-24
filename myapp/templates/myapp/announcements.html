@@ -1,0 +1,226 @@
+<!-- saved from url=(0054)https://getbootstrap.com/docs/4.1/examples/offcanvas/# -->
+<html lang="en">
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="Schindler TAS Announcement">
+    <meta name="author" content="Ryan Bloomgren">
+    <link rel="icon" href="/favicon.ico">
+    <title>Schindler TAS Announcement</title>
+    <link href="/static/myapp/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/myapp/offcanvas.css" rel="stylesheet">
+	
+    <script type="text/javascript">
+	    //var serverip = "10.131.81.70:8000";
+        var serverip = "192.168.1.156:8000";
+        //var serverip = "172.20.10.3:8000";
+        var newsAllreadyPosted = true;
+        function getNews(){
+            //Load News and display on UI
+            var xmlhttp = new XMLHttpRequest();
+            xmlhttp.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+                var myArr = JSON.parse(this.responseText);
+                if(myArr.length == 0){
+                    document.getElementById("news").style.display ='none';//set to flex to show
+                    newsAllreadyPosted = false;
+                }else{
+                    document.getElementById('news_title').innerHTML = myArr[0].title;
+                    document.getElementById('news_description').innerHTML = myArr[0].description;
+                    if(myArr[0].newstype == "urgent"){
+                        //Urgent
+                        document.getElementById('news_photo').src = "/icon_urgent.png";
+                    }else if(myArr[0].newstype == "warning"){
+                        //Warning
+                        document.getElementById('news_photo').src = "/icon_warning.png";
+                    }else{
+                        //Info
+                        document.getElementById('news_photo').src = "/icon_information.png";
+                    }
+                    document.getElementById("news_url").value = myArr[0].url;
+                    document.getElementById("news").style.display ='block';
+                    newsAllreadyPosted = true;
+                }
+            }
+            };
+            xmlhttp.open("GET", "http://" + serverip + "/news/?format=json", true);
+            xmlhttp.send();
+        }
+        function submitNews(){
+            if(newsAllreadyPosted == true){
+                //delete
+                alert("Please delete the existing announcement before creating another one.");
+                return;
+            }
+            var items = document.getElementById('listTypes').getElementsByClassName("list-group-item active");
+            if(items.length <= 0)return;
+            fetch("http://" + serverip + "/news/", {
+                method: 'post',
+                headers: {
+                    'Accept': 'application/json, text/plain, */*',
+                    'Content-Type': 'application/json',
+                    'Authorization':'Token ed73db9bf18f3c3067be926d5ab64cec9bcb9c5e'
+                },
+                    body: JSON.stringify({title: document.getElementById('mo_title').value, newstype: items[0].innerHTML.toLowerCase(), description: document.getElementById('mo_des').value})
+            });
+        }
+        function delItem(itmUrl){
+            var xmlhttp = new XMLHttpRequest();
+            xmlhttp.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 204) {
+                    alert("Existing Announcement deleted.");
+            }
+            };
+            xmlhttp.open("DELETE", itmUrl, false);
+            xmlhttp.send();
+        }
+        function showModal(){
+            $('#modalAnnouncement').modal('show')
+        }
+        function modalUpdateImage(imgType){
+            if(imgType == "urgent"){
+                //Urgent
+                document.getElementById('mo_news_photo').src = "/icon_urgent.png";
+            }else if(imgType == "warning"){
+                //Warning
+                document.getElementById('mo_news_photo').src = "/icon_warning.png";
+            }else{
+                //Info
+                document.getElementById('mo_news_photo').src = "/icon_information.png";
+            }
+        }
+        function updateModal(){
+            document.getElementById('mo_news_title').innerHTML = document.getElementById('mo_title').value;
+            document.getElementById('mo_news_description').innerHTML = document.getElementById('mo_des').value;
+        }
+        function startupInitialize() {
+            var parameters = location.search.substring(1).split("&");
+            var temp = parameters[0].split("=");
+            var paramvalue = unescape(temp[1]);
+            document.getElementById("news").style.display ='none';//set to block to show
+            getNews();
+			let timer = setTimeout(function myTimer() {
+                getNews();
+				timer = setTimeout(myTimer, 1500);
+			}, 1500);
+        }
+        document.addEventListener('DOMContentLoaded', function () {
+            startupInitialize();
+        }, false);
+    </script>
+</head>
+
+<body class="bg-light">
+
+    <nav class="navbar navbar-expand-lg fixed-top navbar-dark bg-dark">
+        <a class="navbar-brand mr-auto mr-lg-0" href="index.html"></a>
+        <button class="navbar-toggler p-0 border-0" type="button" data-toggle="offcanvas">
+        </button>
+    </nav>
+    <div class="nav-scroller bg-white shadow-sm">
+        <nav class="nav nav-underline">
+            <a class="nav-link active" href="">Announcements Control</a>
+            <a class="nav-link" id="mapBtn" onClick="showModal()" href="javascript:void(0)">New Announcement</a>
+            <a class="nav-link" id="mapBtn" onClick='delItem(document.getElementById("news_url").value)' href="javascript:void(0)">Delete Announcement</a>
+        </nav>
+    </div>
+
+    <main role="main" class="container">
+        <div class="d-flex align-items-center p-3 my-3 text-white-50 bg-lgray rounded shadow-sm">
+            <img class="mr-3 rounded" src="/schindler-logo-noletters.png" alt="" width="48" height="48">
+            <div class="lh-100">
+                <strong class="d-block text-red">Schindler</strong>
+                <small class="d-block text-dgray">Tower Access System</small>
+            </div>
+        </div>
+        <div id="newsinf" class="my-3 p-3 bg-white rounded shadow-sm">
+            <h6 class="border-bottom border-gray pb-2 mb-0">Announcements Help</h6>
+            <div class="media text-muted pt-3">
+                <p class="media-body pb-0 mb-0 small lh-125 border-gray">
+                    <span id="news_usage_des" class="d-block">On this page you can add or delete an annoucement.<br>There can only be 1 announcement at a time and it will be visible on all displays.<br><br>An announcement has a title, image, and a description with a max length of 255 characters.</span>
+                </p>
+            </div>
+        </div>
+        <div id="news" class="my-3 p-3 bg-white rounded shadow-sm">
+            <h6 class="border-bottom border-gray pb-2 mb-0">Announcements</h6>
+            <div class="media text-muted pt-3">
+                <img src="\icon_information.png" id="news_photo" alt="32x32" class="mr-2 rounded" style="width: 32px; height: 32px;" data-holder-rendered="true">
+                <p class="media-body pb-0 mb-0 small lh-125 border-gray">
+                    <strong id="news_title" class="d-block text-gray-dark">Title</strong>
+                    <span id="news_description" class="d-block">A description of tower event</span>
+                    <input type="hidden" id="news_url" class="d-block"></input>
+                </p>
+            </div>
+        </div>
+        <div class="modal fade" data-backdrop="static" id="modalAnnouncement" tabindex="-1" role="dialog">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="exampleModalLabel">Create an Annoucement</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        Craft an Annoucement
+                        <br>
+                        A <&nbsp;br&nbsp> tag can be inserted to add a carriage return.
+                        <br>
+                        Descriptions longer than 255 characters may be rejected.
+                        <br>
+                        <div class="row">
+                            <div class="col-4">
+                                <strong class="text-gray-dark">Alert Type</strong>
+                            </div>
+                            <div class="col-6">
+                                <strong class="text-gray-dark">Title</strong>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-4">
+                                <div class="list-group" id="listTypes" role="tablist">
+                                    <a class="list-group-item list-group-item-action active" id="listT0" data-toggle="list" href="#list-home" onclick='modalUpdateImage("information")' role="tab">Information</a>
+                                    <a class="list-group-item list-group-item-action" id="listT1" data-toggle="list" href="#list-home" onclick='modalUpdateImage("warning")'role="tab">Warning</a>
+                                    <a class="list-group-item list-group-item-action" id="listT2" data-toggle="list" href="#list-home" onclick='modalUpdateImage("urgent")' role="tab">Urgent</a>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <input type="text" id="mo_title" onchange="updateModal()" value="">
+                            </div>
+                        </div>
+                        <br>
+                        <strong class="text-gray-dark">Description</strong>
+                        <textarea id="mo_des" rows="8" onchange="updateModal()" cols="50"></textarea>
+                        <br>
+                        <br>
+                        <strong class="d-block text-gray-dark">Announcement Preview</strong>
+                        <div class="media text-muted pt-3">
+                            <img src="\icon_information.png" id="mo_news_photo" alt="32x32" class="mr-2 rounded" style="width: 32px; height: 32px;" data-holder-rendered="true">
+                                <p class="media-body pb-0 mb-0 small lh-125 border-gray">
+                                    <strong id="mo_news_title" class="d-block text-gray-dark">Title</strong>
+                                    <span id="mo_news_description" class="d-block">A description of tower event</span>
+                                </p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" data-dismiss="modal" onclick="submitNews()">Submit</button>
+                    </div>
+                </div>
+            </div>
+        </div>  
+    </main>
+
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="/static/myapp/jquery-3.3.1.slim.min.js"></script>
+	<script src="/static/myapp/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" preserveAspectRatio="none" style="display: none; visibility: hidden; position: absolute; top: -100%; left: -100%;">
+        <defs>
+            <style type="text/css"></style>
+        </defs><text x="0" y="2" style="font-weight:bold;font-size:2pt;font-family:Arial, Helvetica, Open Sans, sans-serif">32x32</text>
+    </svg>
+</body>
+
+</html>

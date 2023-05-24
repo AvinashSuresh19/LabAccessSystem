@@ -1,0 +1,267 @@
+<!-- saved from url=(0054)https://getbootstrap.com/docs/4.1/examples/offcanvas/# -->
+<html lang="en">
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="Schindler TAS">
+    <meta name="author" content="Ryan Bloomgren">
+    <meta http-equiv="Cache-Control" content="no-`cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <link rel="icon" href="/favicon.ico">
+    <title>Schindler TAS</title>
+    <link href="/static/myapp/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/myapp/offcanvas.css" rel="stylesheet">
+	
+    <script type="text/javascript">
+        var swipelocation = -1;//set by parameter
+        var tempUser; //temp user stored here as json object
+        var tempTimer; //timer to keep track of how long the user is popped up
+	    //var serverip = "10.131.81.70:8000";
+        var serverip = "192.168.1.156:8000";
+        //var serverip = "172.20.10.3:8000";
+        var newsRefreshCount = 0; //counting var used to schedule time to update
+        var modalClearCount = 0; //counting var used to schedule when to close maps/tims modals
+        //var user = {firstName:"John", lastName:"Doe", department:"R&D", location:"Car A", url:"Car A",datetime:"", personalNo:""};
+        function getRis(){
+            //pulls down users and then stores them in local vars
+            //a draw method is called when data returns
+            var xmlhttp = new XMLHttpRequest();
+            xmlhttp.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+                var myArr = JSON.parse(this.responseText);
+                listItems = [];
+                var table = document.getElementById("eventTable");
+                table.innerHTML = "";
+                for(var i = 0; i< myArr.length; i++){
+                    var itemIn = { mtype:myArr[i].mtype, title:myArr[i].title, description:myArr[i].description};
+                    if(itemIn.mtype == "site_personnel"){
+                        document.getElementById('site_personnel').innerHTML = itemIn.title + "/" + itemIn.description + " Personnel On-Site today.";
+                        document.getElementById('site_personnel_pb').setAttribute('aria-valuenow', 2);
+                        var pbval = Math.floor(itemIn.title/itemIn.description *100);  
+                        document.getElementById('site_personnel_pb').style.width = pbval + '%';
+                    }
+                    if(itemIn.mtype == "site_visitors"){
+                        document.getElementById('site_visitors').innerHTML = itemIn.title + " Visitors";
+                    }
+                    if(itemIn.mtype == "message"){
+                        document.getElementById('message_title').innerHTML = itemIn.title;
+                        document.getElementById('message_message').innerHTML = itemIn.description;
+                    }
+                    if(itemIn.mtype == "event"){
+                        var table = document.getElementById("eventTable");
+                        var row = table.insertRow(0);
+                        var cell1 = row.insertCell(0);
+                        var cell2 = row.insertCell(1);
+                        cell1.innerHTML = itemIn.title;
+                        cell2.innerHTML = itemIn.description; 
+                    }
+                    listItems.push(itemIn);
+                }
+                
+                //site_personnel
+                resetUsers();
+            }
+            };
+            xmlhttp.open("GET", "http://" + serverip + "/ris/?format=json", true);
+            xmlhttp.send();
+        }
+        function getNews(){
+            //Load News and display on UI
+            var xmlhttp = new XMLHttpRequest();
+            xmlhttp.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+                var myArr = JSON.parse(this.responseText);
+                if(myArr.length == 0){
+                    document.getElementById("news").style.display ='none';//set to flex to show
+                }else{
+                    document.getElementById('news_title').innerHTML = myArr[0].title;
+                    document.getElementById('news_description').innerHTML = myArr[0].description;
+                    if(myArr[0].newstype == "urgent"){
+                        //Urgent
+                        document.getElementById('news_photo').src = "/icon_urgent.png";
+                    }else if(myArr[0].newstype == "warning"){
+                        //Warning
+                        document.getElementById('news_photo').src = "/icon_warning.png";
+                    }else{
+                        //Info
+                        document.getElementById('news_photo').src = "/icon_information.png";
+                    }
+                    document.getElementById("news").style.display ='block';
+                }
+            }
+            };
+            xmlhttp.open("GET", "http://" + serverip + "/news/?format=json", true);
+            xmlhttp.send();
+        }
+        function resetUsers(){
+            //calling clears ui
+            //all places are hidden
+            document.getElementById("numintower").innerHTML = "?";
+        }
+        function startupInitialize() {
+            var parameters = location.search.substring(1).split("&");
+            var temp = parameters[0].split("=");
+            swipelocation = unescape(temp[1]);
+            //if swipe location is a number then we enable swipe monitoring
+            //temp = parameters[1].split("=");
+            //carip = unescape(temp[1]);
+            document.getElementById("numintower").innerHTML = "?";
+            document.getElementById("news").style.display ='none';//set to block to show
+            document.getElementById('site_personnel_pb').style.width ='0%';
+            getNews();
+            getRis();
+            //Now add all cars to list hidden.
+            //if a car has an entry it is unhidden
+			//if(!(swipelocation > 0))return;
+			let timer = setTimeout(function myTimer() {
+                newsRefreshCount = newsRefreshCount + 1;
+                const today = new Date();
+                let ti = today.toLocaleTimeString('en-US');
+                const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+                let da = today.toLocaleDateString(undefined, options);
+                document.getElementById('datetime').innerHTML =  da + "    " + ti;
+                if(newsRefreshCount >= 40){
+                    //Check News every minute
+                    getNews();
+                    getRis();
+                    newsRefreshCount = 0;
+                }
+                if(newsRefreshCount >= 20){
+                    //do task every 30 seconds
+                    getNews();
+                    getRis();
+                }
+				timer = setTimeout(myTimer, 1000);
+			}, 1000);
+        }
+        document.addEventListener('DOMContentLoaded', function () {
+            startupInitialize();
+        }, false);
+    </script>
+</head>
+
+<body class="bg-light">
+
+    <nav class="navbar navbar-expand-lg fixed-top navbar-dark bg-dark">
+        <a class="navbar-brand mr-auto mr-lg-0" href="index.html"></a>
+        <button class="navbar-toggler p-0 border-0" type="button" data-toggle="offcanvas">
+        </button>
+    </nav>
+    <div class="nav-scroller bg-white shadow-sm">
+        <nav class="nav nav-underline">
+            <a class="nav-link active pull-right" href="">Dashboard</a>
+            <a class="nav-link" href="">
+                In-Tower
+                <span id="numintower"class="badge badge-pill bg-light align-text-bottom">?</span>
+            </a>
+            <a class="nav-link" href="">
+                On-Site
+                <span id="numonsite"class="badge badge-pill bg-light align-text-bottom">?</span>
+            </a>
+            <a id="datetime" class="nav-link ml-auto" href=""></a>
+        </nav>
+    </div>
+
+    <main role="main" class="container">
+        <div class="d-flex align-items-center p-3 my-3 text-white-50 bg-lgray rounded shadow-sm">
+            <img class="mr-3 rounded" src="/schindler-logo-noletters.png" alt="" width="48" height="48">
+            <div class="lh-100">
+                <strong class="d-block text-red">Schindler</strong>
+                <small class="d-block text-dgray">Randolph Information System</small>
+            </div>
+        </div>
+
+        <div id="news" class="my-3 p-3 bg-white rounded shadow-sm">
+            <h6 class="border-bottom border-gray pb-2 mb-0">Announcements</h6>
+            <div class="media text-muted pt-3">
+                <img src="\icon_information.png" id="news_photo" alt="32x32" class="mr-2 rounded" style="width: 32px; height: 32px;" data-holder-rendered="true">
+                <p class="media-body pb-0 mb-0 small lh-125 border-gray">
+                    <strong id="news_title" class="d-block text-gray-dark">Update</strong>
+                    <span id="news_description" class="d-block">No announcements at this time</span>
+                </p>
+            </div>
+        </div>
+ 
+     <div class="album py-5">
+        <div class="container">
+
+          <div class="row">
+            <div class="col-md-4">
+              <div class="card mb-4 box-shadow">
+                  <div class="card-top d-flex align-items-center p-2 my-0 text-white-50 bg-lgray rounded shadow-sm">
+                  <img class="mr-3 rounded" src="/icon_building.png" alt="" width="48" height="48">
+                    <div class="lh-100">
+                    <strong class="d-block text-red">Tower Access System</strong>
+                    </div>  
+                </div>
+                <iframe class="card-img-top" style="height: 650px; width: 100%; display: block;" data-holder-rendered="true" src="http://10.131.81.70:8000/home/?loc=952" title="TAS"></iframe>
+              </div>
+            </div>
+              
+            <div class="col-md-4">
+              <div class="card mb-4 box-shadow">
+                <div class="card-top d-flex align-items-center p-2 my-0 text-white-50 bg-lgray rounded shadow-sm">
+                  <img class="mr-3 rounded" src="/icon_building.png" alt="" width="48" height="48">
+                    <div class="lh-100">
+                    <strong class="d-block text-red">Randolph</strong>
+                    </div>  
+                </div>
+                <div class="progress">
+                    <div class="progress-bar bg-danger progress-bar-striped progress-bar-animated" id="site_personnel_pb"role="progressbar" aria-valuenow="70" aria-valuemin="0" aria-valuemax="100" style="width: 75%">    </div>
+                </div>
+                <img hidden class="card-img-top" data-src="holder.js/100px225?theme=thumb&amp;bg=55595c&amp;fg=eceeef&amp;text=Thumbnail" alt="Thumbnail [100%x225]" src="" data-holder-rendered="true" style="height: 225px; width: 100%; display: block;">
+                <div class="card-body">
+                  <p class="card-text" id="site_personnel"></p>
+                  <div class="d-flex justify-content-between align-items-center">
+                  </div>
+                  <p class="card-text" id="site_visitors"></p>
+                  <br>
+                  <p class="card-text font-weight-bold" id="message_title"></p>
+                  <p class="card-text font-weight-normal" id="message_message"></p>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="card mb-4 box-shadow">
+                <div class="card-top d-flex align-items-center p-2 my-0 text-white-50 bg-lgray rounded shadow-sm">
+                  <img class="mr-3 rounded" src="/icon_events.png" alt="" width="48" height="48">
+                    <div class="lh-100">
+                    <strong class="d-block text-red">Events</strong>
+                    </div>  
+                </div>
+                <img hidden class="card-img-top" data-src="holder.js/100px225?theme=thumb&amp;bg=55595c&amp;fg=eceeef&amp;text=Thumbnail" alt="Thumbnail [100%x225]" src="" data-holder-rendered="true" style="height: 225px; width: 100%; display: block;">
+                <div class="card-body">
+                  <p hidden class="card-text">SIS Workshop 11/2</p>
+                    <table id="eventTable">
+                    </table>
+                  <div class="d-flex justify-content-between align-items-center">
+                    <small hidden class="text-muted">Refreshed 9 mins ago</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+
+              
+          </div>
+        </div>
+      </div>
+
+
+    </main>
+
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="/static/myapp/jquery-3.3.1.slim.min.js"></script>
+	<script src="/static/myapp/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" preserveAspectRatio="none" style="display: none; visibility: hidden; position: absolute; top: -100%; left: -100%;">
+        <defs>
+            <style type="text/css"></style>
+        </defs><text x="0" y="2" style="font-weight:bold;font-size:2pt;font-family:Arial, Helvetica, Open Sans, sans-serif">32x32</text>
+    </svg>
+</body>
+
+</html>
